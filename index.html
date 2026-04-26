@@ -4,172 +4,256 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nightfall | Bedtime Stories</title>
-    <!-- Tailwind CSS for mobile-first, clean UI -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons for premium SVG icons -->
+    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <style>
-        :root {
-            --bg-deep: #0A0F1D;
-            --bg-card: #151C2C;
-            --text-main: #E2E8F0;
-            --text-muted: #94A3B8;
-            --accent: #7E90D6;
-            --accent-hover: #5A6DB8;
+    <!-- Premium Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        serif: ['"Lora"', 'serif'],
+                    },
+                    colors: {
+                        night: {
+                            900: '#060913',
+                            800: '#0A1128',
+                            700: '#141E3A',
+                            600: '#1E2C5A',
+                        },
+                        starlight: '#E2E8F0',
+                        accent: '#8B9FEA',
+                        'accent-hover': '#6B82D6',
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 15s ease infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'slide-up': 'slideUp 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
         }
-        
+    </script>
+    <style>
         body {
-            background-color: var(--bg-deep);
-            color: var(--text-main);
-            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(-45deg, #060913, #0A1128, #0b1120, #060913);
+            background-size: 400% 400%;
+            color: theme('colors.starlight');
             -webkit-tap-highlight-color: transparent;
             overscroll-behavior-y: none;
         }
 
-        .glass-panel {
-            background: rgba(21, 28, 44, 0.8);
-            backdrop-filter: blur(12px);
+        .glass {
+            background: rgba(20, 30, 58, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .glass-pill {
+            background: rgba(20, 30, 58, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
         }
 
         .story-text {
-            font-size: 1.15rem;
-            line-height: 1.8;
-            color: #CBD5E1;
-            white-space: pre-wrap;
+            font-size: 1.25rem;
+            line-height: 1.85;
+            color: #D1D5DB;
+        }
+
+        .story-text p {
+            margin-bottom: 1.5em;
         }
 
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
         ::-webkit-scrollbar-track {
             background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-            background: var(--bg-card);
+            background: rgba(139, 159, 234, 0.3);
             border-radius: 10px;
         }
 
-        #settingsModal {
-            transition: opacity 0.3s ease, transform 0.3s ease;
+        select {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%238B9FEA' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 1rem center;
+            background-repeat: no-repeat;
+            background-size: 1.5em 1.5em;
         }
-        .modal-hidden {
+
+        /* Modals */
+        .modal-overlay {
             opacity: 0;
             pointer-events: none;
-            transform: translateY(20px);
+            transition: opacity 0.3s ease;
         }
-        .modal-visible {
+        .modal-overlay.active {
             opacity: 1;
             pointer-events: auto;
-            transform: translateY(0);
+        }
+        .modal-content {
+            transform: scale(0.95) translateY(10px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .modal-overlay.active .modal-content {
+            transform: scale(1) translateY(0);
+            opacity: 1;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center p-4 sm:p-8">
+<body class="animate-gradient-x min-h-screen flex flex-col items-center font-sans">
 
-    <!-- Header -->
-    <header class="w-full max-w-2xl flex justify-between items-center mb-8 pt-4">
-        <div>
-            <h1 class="text-3xl font-light tracking-wide text-[var(--accent)]">Nightfall</h1>
-            <p class="text-sm text-[var(--text-muted)]">AI Bedtime Stories</p>
+    <!-- Top Navigation -->
+    <header class="w-full max-w-3xl flex justify-between items-center p-6 sm:p-8 z-10">
+        <div class="flex items-center gap-3">
+            <i class="ph-fill ph-moon-stars text-3xl text-accent"></i>
+            <div>
+                <h1 class="text-2xl font-semibold tracking-wide text-white">Nightfall</h1>
+            </div>
         </div>
-        <button id="openSettingsBtn" class="p-3 rounded-full hover:bg-[var(--bg-card)] transition-colors text-[var(--text-muted)] hover:text-white">
-            <i class="ph ph-gear text-2xl"></i>
+        <button id="openSettingsBtn" class="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white">
+            <i class="ph ph-sliders-horizontal text-2xl"></i>
         </button>
     </header>
 
     <!-- Main Content Area -->
-    <main class="w-full max-w-2xl flex-1 flex flex-col">
+    <main class="w-full max-w-3xl flex-1 flex flex-col relative px-6 sm:px-8 pb-32">
         
         <!-- Setup Screen -->
-        <div id="setupScreen" class="glass-panel p-6 rounded-2xl flex flex-col gap-6 shadow-xl">
-            <div>
-                <label class="block text-sm font-medium text-[var(--text-muted)] mb-2">Choose your theme</label>
-                <select id="category" class="w-full bg-[var(--bg-deep)] border border-gray-700 text-white rounded-xl p-4 appearance-none focus:outline-none focus:border-[var(--accent)] transition-colors">
-                    <option value="A quiet journey through a bioluminescent forest">Bioluminescent Forest</option>
-                    <option value="A peaceful deep-space observation post">Deep Space Observation</option>
-                    <option value="A cozy cabin during a gentle snowstorm">Snowy Cabin Retreat</option>
-                    <option value="A slow train ride through a magical countryside">Magical Train Ride</option>
-                    <option value="A gentle boat ride down a lazy, moonlit river">Moonlit River Cruise</option>
-                    <option value="A quiet library inside an ancient castle during a rainstorm">Rainy Castle Library</option>
-                </select>
+        <div id="setupScreen" class="flex-1 flex flex-col justify-center animate-slide-up max-w-lg mx-auto w-full">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl sm:text-4xl font-serif text-white mb-4">Drift away.</h2>
+                <p class="text-slate-400 text-lg font-light">Select a theme and let AI craft an endless, soothing journey just for you.</p>
             </div>
-            
-            <button id="generateBtn" class="w-full py-4 rounded-xl font-medium text-lg bg-[var(--accent)] text-[#0A0F1D] hover:bg-[var(--accent-hover)] active:scale-[0.98] transition-all flex justify-center items-center gap-2">
-                <i class="ph ph-sparkle text-xl"></i> Write My Story
-            </button>
-            <p id="setupStatus" class="text-center text-sm text-[var(--accent)] h-6"></p>
-        </div>
 
-        <!-- Player Screen -->
-        <div id="playerScreen" class="hidden flex-col gap-6 h-full">
-            <div class="glass-panel p-4 rounded-2xl shadow-2xl sticky top-4 z-10 flex flex-col gap-4">
-                <div class="flex justify-between items-center px-2">
-                    <span id="playerStatus" class="text-sm font-medium text-[var(--accent)]">Story Ready</span>
-                    <button id="backBtn" class="text-sm text-[var(--text-muted)] hover:text-white transition-colors">New Story</button>
+            <div class="glass p-8 rounded-3xl flex flex-col gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-3 ml-1">Tonight's Setting</label>
+                    <select id="category" class="w-full bg-night-800/50 border border-white/10 text-white rounded-2xl p-4 appearance-none focus:outline-none focus:border-accent transition-colors text-lg">
+                        <option value="A quiet journey through a bioluminescent forest">Bioluminescent Forest</option>
+                        <option value="A peaceful deep-space observation post">Deep Space Observation</option>
+                        <option value="A cozy cabin during a gentle snowstorm">Snowy Cabin Retreat</option>
+                        <option value="A slow train ride through a magical countryside">Magical Train Ride</option>
+                        <option value="A gentle boat ride down a lazy, moonlit river">Moonlit River Cruise</option>
+                        <option value="A quiet library inside an ancient castle during a rainstorm">Rainy Castle Library</option>
+                    </select>
                 </div>
                 
-                <div class="flex justify-center items-center gap-6">
-                    <button id="stopBtn" class="p-4 rounded-full bg-[var(--bg-card)] text-white hover:text-red-400 transition-colors">
-                        <i class="ph-fill ph-stop text-2xl"></i>
+                <button id="generateBtn" class="w-full py-4 mt-2 rounded-2xl font-semibold text-lg bg-accent text-night-900 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/20 active:scale-[0.98] transition-all flex justify-center items-center gap-2">
+                    <i class="ph-fill ph-book-open-text text-xl"></i> Write My Story
+                </button>
+                <p id="setupStatus" class="text-center text-sm text-accent h-6 mt-[-10px] animate-pulse"></p>
+            </div>
+        </div>
+
+        <!-- Player Screen (Hidden initially) -->
+        <div id="playerScreen" class="hidden flex-col h-full animate-fade-in relative pt-4">
+            <!-- Reader Area -->
+            <div id="storyOutput" class="story-text font-serif"></div>
+            
+            <!-- Floating Media Controls -->
+            <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass-pill rounded-full p-2 flex items-center justify-between z-20 px-4">
+                <button id="backBtn" class="p-3 text-slate-400 hover:text-white transition-colors flex flex-col items-center group">
+                    <i class="ph ph-arrow-left text-xl group-hover:-translate-x-1 transition-transform"></i>
+                </button>
+                
+                <div class="flex items-center gap-4">
+                    <button id="stopBtn" class="p-3 text-slate-400 hover:text-red-400 transition-colors">
+                        <i class="ph-fill ph-stop text-xl"></i>
                     </button>
-                    <button id="playPauseBtn" class="p-5 rounded-full bg-[var(--accent)] text-[#0A0F1D] hover:bg-[var(--accent-hover)] transition-colors shadow-lg shadow-[#7E90D6]/20">
-                        <i id="playIcon" class="ph-fill ph-play text-3xl"></i>
+                    <button id="playPauseBtn" class="h-14 w-14 flex items-center justify-center rounded-full bg-accent text-night-900 hover:bg-accent-hover transition-all hover:scale-105 shadow-[0_0_20px_rgba(139,159,234,0.3)]">
+                        <i id="playIcon" class="ph-fill ph-play text-2xl ml-1"></i>
                     </button>
                 </div>
-            </div>
 
-            <div id="storyOutput" class="story-text px-2 pb-24 mt-4"></div>
+                <div class="w-10 flex justify-center">
+                    <i class="ph-fill ph-speaker-high text-slate-400 text-lg"></i>
+                </div>
+            </div>
+            
+            <!-- Floating Status -->
+            <div class="fixed bottom-28 left-0 right-0 text-center pointer-events-none z-10">
+                <span id="playerStatus" class="inline-block px-4 py-1 rounded-full bg-night-900/80 backdrop-blur-md text-xs font-medium tracking-wide text-accent border border-white/5 shadow-xl">Story Ready</span>
+            </div>
         </div>
 
     </main>
 
     <!-- Settings Modal -->
-    <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-hidden">
-        <div class="bg-[var(--bg-card)] w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-semibold">Settings</h2>
-                <button id="closeSettingsBtn" class="text-[var(--text-muted)] hover:text-white">
-                    <i class="ph ph-x text-2xl"></i>
-                </button>
-            </div>
+    <div id="settingsModal" class="fixed inset-0 bg-night-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-overlay">
+        <div class="modal-content bg-night-800 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto flex flex-col relative">
             
-            <div class="flex flex-col gap-6">
-                <!-- API Key Section -->
+            <button id="closeSettingsBtn" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors">
+                <i class="ph ph-x text-lg"></i>
+            </button>
+            
+            <h2 class="text-2xl font-serif text-white mb-8">Settings</h2>
+            
+            <div class="flex flex-col gap-8">
+                <!-- Reader Voice Section -->
                 <div>
-                    <label class="block text-sm text-[var(--text-muted)] mb-2">Gemini API Key</label>
-                    <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full bg-[var(--bg-deep)] border border-gray-700 text-white rounded-xl p-4 focus:outline-none focus:border-[var(--accent)] transition-colors">
-                    <p class="text-xs text-[var(--text-muted)] mt-2">Stored securely on your device.</p>
-                </div>
-
-                <!-- Voice Selector Section -->
-                <div>
-                    <label class="block text-sm text-[var(--text-muted)] mb-2">Reader Voice</label>
-                    <select id="voiceSelect" class="w-full bg-[var(--bg-deep)] border border-gray-700 text-white rounded-xl p-4 appearance-none focus:outline-none focus:border-[var(--accent)] transition-colors">
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Narrator Voice</label>
+                    <select id="voiceSelect" class="w-full bg-night-900 border border-white/10 text-white rounded-xl p-4 appearance-none focus:outline-none focus:border-accent transition-colors">
                         <option value="">Loading voices...</option>
                     </select>
-                    <p class="text-xs text-[var(--text-muted)] mt-2">Network/Online voices usually sound more natural than local ones.</p>
-                    <button id="testVoiceBtn" class="mt-3 w-full py-2 rounded-lg text-sm border border-gray-600 text-[var(--text-main)] hover:bg-[var(--bg-deep)] transition-colors">
-                        Test Voice
+                    <p class="text-xs text-slate-400 mt-2">Network voices usually provide the most natural experience. Your selection is saved automatically.</p>
+                    <button id="testVoiceBtn" class="mt-3 w-full py-3 rounded-xl text-sm font-medium border border-white/10 text-white hover:bg-white/5 transition-colors flex justify-center items-center gap-2">
+                        <i class="ph-fill ph-waveform"></i> Test Voice
                     </button>
                 </div>
 
-                <button id="saveSettingsBtn" class="w-full py-3 mt-2 rounded-xl font-medium bg-[var(--accent)] text-[#0A0F1D] hover:bg-[var(--accent-hover)] transition-colors">
-                    Save Changes
-                </button>
+                <!-- API Key Section -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Gemini API Key</label>
+                    <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full bg-night-900 border border-white/10 text-white rounded-xl p-4 focus:outline-none focus:border-accent transition-colors">
+                    <p class="text-xs text-slate-400 mt-2">Stored securely in your browser's local storage.</p>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        // UI Elements
+        // DOM Elements
         const setupScreen = document.getElementById('setupScreen');
         const playerScreen = document.getElementById('playerScreen');
         const settingsModal = document.getElementById('settingsModal');
         
         const openSettingsBtn = document.getElementById('openSettingsBtn');
         const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
         
         const apiKeyInput = document.getElementById('apiKey');
         const voiceSelect = document.getElementById('voiceSelect');
@@ -194,14 +278,12 @@
         let isPlaying = false;
         let isPaused = false; 
 
-        // --- Voice Loading & Population ---
+        // --- Voices Management ---
         function populateVoiceList() {
             voices = synth.getVoices();
             if (voices.length === 0) return;
 
-            // Filter for mostly English voices to keep the list clean
             const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-            
             voiceSelect.innerHTML = '';
             
             englishVoices.forEach(voice => {
@@ -211,115 +293,130 @@
                 voiceSelect.appendChild(option);
             });
 
-            // Load saved voice or try to find a good default
+            // Restore saved voice immediately
             const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
-            if (savedVoiceURI) {
+            if (savedVoiceURI && englishVoices.find(v => v.voiceURI === savedVoiceURI)) {
                 voiceSelect.value = savedVoiceURI;
             } else {
-                // Try to find a good default network female voice
+                // Default fallback
                 const defaultVoice = englishVoices.find(v => 
                     v.name.includes('Google UK English Female') || 
                     (v.name.includes('Google') && !v.localService)
-                );
-                if (defaultVoice) voiceSelect.value = defaultVoice.voiceURI;
+                ) || englishVoices[0];
+                if (defaultVoice) {
+                    voiceSelect.value = defaultVoice.voiceURI;
+                    localStorage.setItem('gemini_selected_voice', defaultVoice.voiceURI);
+                }
             }
         }
 
-        // Voices load asynchronously in some browsers
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = populateVoiceList;
         }
 
-        // Test Voice Button
+        // Save voice immediately on selection change
+        voiceSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                localStorage.setItem('gemini_selected_voice', e.target.value);
+            }
+        });
+
         testVoiceBtn.addEventListener('click', () => {
             const selectedURI = voiceSelect.value;
             const voice = voices.find(v => v.voiceURI === selectedURI);
             if (voice) {
                 synth.cancel();
-                const utterance = new SpeechSynthesisUtterance("This is how I will read your bedtime story. Take a deep breath, and relax.");
+                const utterance = new SpeechSynthesisUtterance("This is how I will read your story tonight. Lie back, and close your eyes.");
                 utterance.voice = voice;
-                utterance.rate = 0.85; // slightly slower for bedtime feel
+                utterance.rate = 0.85; 
                 utterance.pitch = 0.9;
                 synth.speak(utterance);
             }
         });
 
-        // 1. App Initialization & Settings
+        // --- App Initialization & API Key ---
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) apiKeyInput.value = savedKey;
         });
 
+        // Save API Key immediately on input change/blur
+        apiKeyInput.addEventListener('change', (e) => {
+            localStorage.setItem('gemini_api_key', e.target.value.trim());
+        });
+
         openSettingsBtn.addEventListener('click', () => {
-            settingsModal.classList.remove('modal-hidden');
-            settingsModal.classList.add('modal-visible');
-            populateVoiceList(); // Refresh list just in case
+            settingsModal.classList.add('active');
+            populateVoiceList();
         });
 
-        const closeSettings = () => {
-            synth.cancel(); // Stop test voice if playing
-            settingsModal.classList.remove('modal-visible');
-            settingsModal.classList.add('modal-hidden');
-        };
+        closeSettingsBtn.addEventListener('click', () => {
+            synth.cancel(); 
+            settingsModal.classList.remove('active');
+            // Ensure key is saved if they typed and clicked close without blurring
+            if (apiKeyInput.value.trim()) {
+                localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
+            }
+        });
         
-        closeSettingsBtn.addEventListener('click', closeSettings);
-        
-        saveSettingsBtn.addEventListener('click', () => {
-            const key = apiKeyInput.value.trim();
-            if (key) localStorage.setItem('gemini_api_key', key);
-            
-            const selectedVoiceURI = voiceSelect.value;
-            if (selectedVoiceURI) localStorage.setItem('gemini_selected_voice', selectedVoiceURI);
-            
-            closeSettings();
+        // Close modal on click outside
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) closeSettingsBtn.click();
         });
 
-        // 2. Generation Logic
+        // --- Generation Logic ---
         generateBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
                 openSettingsBtn.click();
-                alert("Please enter your Gemini API Key first.");
+                // Brief timeout to let the modal open
+                setTimeout(() => alert("Please enter your Gemini API Key to begin."), 300);
                 return;
             }
 
             try {
                 generateBtn.disabled = true;
-                generateBtn.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-xl"></i> Writing...';
+                generateBtn.innerHTML = '<i class="ph ph-spinner-gap animate-spin text-xl"></i> Crafting...';
                 setupStatus.innerText = "Connecting to Gemini...";
 
                 const modelName = await getValidModel(apiKey);
                 
-                setupStatus.innerText = "Crafting a long, soothing story... (Please wait)";
+                setupStatus.innerText = "Writing your story... (This may take a minute)";
                 const storyText = await fetchStoryFromAPI(apiKey, modelName, categorySelect.value);
                 
-                storyOutput.innerText = storyText;
+                // Format text for beautiful screen reading (add paragraph tags)
+                const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+                storyOutput.innerHTML = formattedText;
                 
-                let spokenText = storyText.replace(/\*/g, '');
-                spokenText = spokenText.replace(/[\r\n]+/g, ' ');
+                // Chunk text for TTS engine
+                let spokenText = storyText.replace(/\*/g, '').replace(/[\r\n]+/g, ' ');
                 storyChunks = spokenText.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
                 storyChunks = storyChunks.filter(chunk => chunk.trim().length > 0);
                 currentChunkIndex = 0;
                 
+                // UI Transitions
                 setupScreen.classList.add('hidden');
                 playerScreen.classList.remove('hidden');
                 playerScreen.classList.add('flex');
+                window.scrollTo(0, 0); // Scroll to top of story
                 
                 isPlaying = false;
                 isPaused = false;
                 updatePlayButtonUI();
-                playerStatus.innerText = "Story Ready. Press Play to begin.";
+                playerStatus.innerText = "Ready to play";
+                playerStatus.classList.remove('text-red-400');
+                playerStatus.classList.add('text-accent');
 
             } catch (error) {
-                setupStatus.innerText = `Error: ${error.message}`;
+                setupStatus.innerText = error.message;
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.innerHTML = '<i class="ph ph-sparkle text-xl"></i> Write My Story';
+                generateBtn.innerHTML = '<i class="ph-fill ph-book-open-text text-xl"></i> Write My Story';
             }
         });
 
-        // 3. Audio Player Logic
+        // --- Audio Player Logic ---
         playPauseBtn.addEventListener('click', () => {
             if (isPlaying) {
                 synth.cancel();
@@ -330,7 +427,7 @@
             } else {
                 isPlaying = true;
                 isPaused = false;
-                playerStatus.innerText = "Reading...";
+                playerStatus.innerText = "Reading softly...";
                 updatePlayButtonUI();
                 speakCurrentChunk();
             }
@@ -341,7 +438,7 @@
             isPlaying = false;
             isPaused = false;
             currentChunkIndex = 0; 
-            playerStatus.innerText = "Stopped. Press Play to start from beginning.";
+            playerStatus.innerText = "Stopped";
             updatePlayButtonUI();
         });
 
@@ -358,7 +455,7 @@
             if (!isPlaying) return; 
             if (currentChunkIndex >= storyChunks.length) {
                 isPlaying = false;
-                playerStatus.innerText = "Story Complete. Sweet dreams.";
+                playerStatus.innerText = "Story complete. Sweet dreams.";
                 updatePlayButtonUI();
                 return;
             }
@@ -372,19 +469,16 @@
 
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             
-            // USE THE USER'S SELECTED VOICE
+            // STRICT VOICE ENFORCEMENT
             const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
-            let selectedVoice = null;
-            
             if (savedVoiceURI && voices.length > 0) {
-                selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
-            }
-            
-            if (selectedVoice) {
-                utterance.voice = selectedVoice;
+                const selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
             }
 
-            utterance.rate = 0.75; 
+            utterance.rate = 0.8; // Calming pace
             utterance.pitch = 0.9;
             utterance.volume = 1.0;
 
@@ -411,13 +505,15 @@
             if (isPlaying) {
                 playIcon.classList.remove('ph-play');
                 playIcon.classList.add('ph-pause');
+                playIcon.classList.remove('ml-1'); // Center pause icon perfectly
             } else {
                 playIcon.classList.remove('ph-pause');
                 playIcon.classList.add('ph-play');
+                playIcon.classList.add('ml-1'); // Optical alignment for play icon
             }
         }
 
-        // 4. API Calls
+        // --- API Calls ---
         async function getValidModel(apiKey) {
             let cachedModel = localStorage.getItem('gemini_preferred_model');
             if (cachedModel && cachedModel.includes('latest')) {
@@ -427,14 +523,14 @@
             if (cachedModel) return cachedModel;
 
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            if (!response.ok) throw new Error("Invalid API Key");
+            if (!response.ok) throw new Error("Invalid API Key. Check settings.");
             
             const data = await response.json();
             const validModels = data.models.filter(m => 
                 m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
             );
 
-            if (validModels.length === 0) throw new Error("No text models found.");
+            if (validModels.length === 0) throw new Error("No text models found on this key.");
             
             const preferredModel = validModels.find(m => m.name.includes('gemini-2.5-flash')) || 
                                    validModels.find(m => m.name.includes('gemini-1.5-flash')) || 
@@ -448,7 +544,7 @@
             const prompt = `Write a highly descriptive, incredibly slow-paced, and soothing bedtime story for an adult. 
             The category/theme is: ${category}. 
             The goal is for the user to fall asleep while listening. Focus heavily on sensory details, gentle sounds, soft lighting, and a calm, meandering narrative arc with no high stakes or stressful conflict. 
-            Make the story extremely long, aiming for at least 5,000 words, maximizing your output length. Use calm, rhythmic sentence structures. Output only the story text. Do not use Markdown formatting like bold or italics.`;
+            Make the story extremely long, aiming for at least 5,000 words, maximizing your output length. Use calm, rhythmic sentence structures. Output only the story text. Do not use Markdown formatting like bold or italics. Format into natural, spaced paragraphs.`;
 
             const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
 
