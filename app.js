@@ -2,14 +2,24 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusDiv = document.getElementById('status');
 const storyOutput = document.getElementById('storyOutput');
+const apiKeyInput = document.getElementById('apiKey');
 const synth = window.speechSynthesis;
 
-// Attempt to load voices early
 let voices = [];
+let isReading = false;
+
+// 1. Load the API Key on startup if it exists
+window.addEventListener('DOMContentLoaded', () => {
+    const savedKey = localStorage.getItem('gemini_api_key');
+    if (savedKey) {
+        apiKeyInput.value = savedKey;
+    }
+});
+
 synth.onvoiceschanged = () => { voices = synth.getVoices(); };
 
 startBtn.addEventListener('click', async () => {
-    const apiKey = document.getElementById('apiKey').value.trim();
+    const apiKey = apiKeyInput.value.trim();
     const category = document.getElementById('category').value;
 
     if (!apiKey) {
@@ -17,24 +27,25 @@ startBtn.addEventListener('click', async () => {
         return;
     }
 
-    // MOBILE CHROME AUDIO FIX: 
-    // We must speak immediately on button press to unlock the Web Speech API on Android.
-    // If we wait for the AI to generate the story first, Android will block the audio.
+    // Save the API key for next time
+    localStorage.setItem('gemini_api_key', apiKey);
+
+    // MOBILE CHROME AUDIO FIX: Wake up the speech engine immediately
     wakeUpSpeechEngine();
 
     try {
         startBtn.disabled = true;
         
-        // 1. Check/Cache Models (Now with a cache-buster for the old bad model)
+        // Fetch valid model
         const modelName = await getOrFetchModel(apiKey);
         
-        // 2. Generate Story
-        statusDiv.innerText = `Writing your bedtime story using ${modelName.split('/')[1]}... (This may take a minute)`;
+        // Generate Story
+        statusDiv.innerText = `Writing your bedtime story using ${modelName.split('/')[1]}...`;
         storyOutput.innerText = "";
         
         const storyText = await generateStory(apiKey, modelName, category);
         
-        // 3. Display and Read Story
+        // Display and Read Story
         statusDiv.innerText = "Reading...";
         storyOutput.innerText = storyText;
         startBtn.style.display = 'none';
@@ -45,12 +56,12 @@ startBtn.addEventListener('click', async () => {
     } catch (error) {
         statusDiv.innerText = "Error: " + error.message;
         startBtn.disabled = false;
-        // Clear cache if there's an error so it doesn't get stuck
         localStorage.removeItem('gemini_preferred_model');
     }
 });
 
 stopBtn.addEventListener('click', () => {
+    isReading = false;
     synth.cancel();
     stopBtn.style.display = 'none';
     startBtn.style.display = 'block';
@@ -59,64 +70,46 @@ stopBtn.addEventListener('click', () => {
 });
 
 function wakeUpSpeechEngine() {
-    // This immediately engages the speech engine on the user's tap gesture
-    synth.cancel(); // Clear anything pending
+    synth.cancel(); 
     const wakeUpUtterance = new SpeechSynthesisUtterance("Preparing your story...");
-    wakeUpUtterance.volume = 0.5;
-    wakeUpUtterance.rate = 1.0;
+    wakeUpUtterance.volume = 0.1; // Keep it quiet
     synth.speak(wakeUpUtterance);
 }
 
 async function getOrFetchModel(apiKey) {
-    // Check localStorage first
     let cachedModel = localStorage.getItem('gemini_preferred_model');
     
-    // CACHE BUSTER: If the user has the old deprecated model stuck in their browser, clear it.
     if (cachedModel && cachedModel.includes('gemini-1.5-pro-latest')) {
-        console.log("Found deprecated model in cache. Clearing it.");
         localStorage.removeItem('gemini_preferred_model');
         cachedModel = null;
     }
 
-    if (cachedModel) {
-        console.log("Using cached model:", cachedModel);
-        return cachedModel;
-    }
+    if (cachedModel) return cachedModel;
 
     statusDiv.innerText = "Fetching available models from Gemini...";
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
     
-    if (!response.ok) {
-        throw new Error("Failed to fetch models. Please verify your API key.");
-    }
+    if (!response.ok) throw new Error("Failed to fetch models. Please verify your API key.");
     
     const data = await response.json();
     
-    // Filter the API response to ONLY include models that support "generateContent"
     const validModels = data.models.filter(m => 
         m.supportedGenerationMethods && 
         m.supportedGenerationMethods.includes('generateContent')
     );
 
-    if (validModels.length === 0) {
-        throw new Error("No suitable text generation models found for this API key.");
-    }
+    if (validModels.length === 0) throw new Error("No suitable text generation models found.");
     
-    // Prefer Flash 2.5, then Flash 1.5, otherwise grab the first available model
     const preferredModel = validModels.find(m => m.name.includes('gemini-2.5-flash')) || 
                            validModels.find(m => m.name.includes('gemini-1.5-flash')) || 
                            validModels[0];
     
     const selectedModelName = preferredModel.name;
-    
-    // Save to localStorage
     localStorage.setItem('gemini_preferred_model', selectedModelName);
-    console.log("Fetched and cached model:", selectedModelName);
     return selectedModelName;
 }
 
 async function generateStory(apiKey, modelName, category) {
-    // 30-60 minutes read time is roughly 4,500 to 9,000 words. 
     const prompt = `Write a highly descriptive, incredibly slow-paced, and soothing bedtime story for an adult. 
     The category/theme is: ${category}. 
     The goal is for the user to fall asleep while listening. Focus heavily on sensory details, gentle sounds, soft lighting, and a calm, meandering narrative arc with no high stakes or stressful conflict. 
@@ -130,7 +123,7 @@ async function generateStory(apiKey, modelName, category) {
         body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-                maxOutputTokens: 8192, // Maximize length
+                maxOutputTokens: 8192,
                 temperature: 0.7
             }
         })
@@ -146,34 +139,56 @@ async function generateStory(apiKey, modelName, category) {
 }
 
 function readStoryAloud(text) {
+    isReading = true;
+    synth.cancel(); // Clear the wakeup utterance
+    
     if (!voices.length) voices = synth.getVoices();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Look for a soft, female-sounding voice
     const femaleVoice = voices.find(v => 
-        v.name.includes('Female') || 
-        v.name.includes('Samantha') || 
-        v.name.includes('Zira') ||
-        v.name.includes('Karen') ||
+        v.name.includes('Female') || v.name.includes('Samantha') || 
+        v.name.includes('Zira') || v.name.includes('Karen') || 
         v.name.includes('Victoria')
     );
+
+    // ANDROID FIX: Break the massive text into small sentence chunks
+    // Replace newlines with periods so they create pauses, then split by punctuation
+    const safeText = text.replace(/\n/g, '. ');
+    const chunks = safeText.match(/[^.!?]+[.!?]+/g) || [text];
     
-    if (femaleVoice) {
-        utterance.voice = femaleVoice;
+    let currentChunk = 0;
+
+    function speakNextChunk() {
+        if (!isReading) return; // User pressed stop
+        
+        if (currentChunk >= chunks.length) {
+            stopBtn.style.display = 'none';
+            startBtn.style.display = 'block';
+            startBtn.disabled = false;
+            statusDiv.innerText = "Sweet dreams.";
+            isReading = false;
+            return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(chunks[currentChunk].trim());
+        if (femaleVoice) utterance.voice = femaleVoice;
+        
+        utterance.rate = 0.75;
+        utterance.pitch = 0.9;
+        utterance.volume = 1.0;
+
+        utterance.onend = () => {
+            currentChunk++;
+            speakNextChunk(); // Chain the next sentence
+        };
+
+        utterance.onerror = (e) => {
+            console.error("Audio interrupted", e);
+            // If it glitches, attempt to skip to the next sentence
+            currentChunk++;
+            speakNextChunk();
+        };
+
+        synth.speak(utterance);
     }
 
-    // Adjust settings for a "bedtime" feel
-    utterance.rate = 0.75; // Slower pace
-    utterance.pitch = 0.9; // Slightly lower pitch for calmness
-    utterance.volume = 1.0;
-
-    utterance.onend = () => {
-        stopBtn.style.display = 'none';
-        startBtn.style.display = 'block';
-        startBtn.disabled = false;
-        statusDiv.innerText = "Sweet dreams.";
-    };
-
-    synth.speak(utterance);
+    speakNextChunk();
 }
