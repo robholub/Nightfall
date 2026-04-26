@@ -39,7 +39,6 @@
             white-space: pre-wrap;
         }
 
-        /* Custom Scrollbar for story reading */
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -51,7 +50,6 @@
             border-radius: 10px;
         }
 
-        /* Modal Transitions */
         #settingsModal {
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
@@ -93,6 +91,7 @@
                     <option value="A cozy cabin during a gentle snowstorm">Snowy Cabin Retreat</option>
                     <option value="A slow train ride through a magical countryside">Magical Train Ride</option>
                     <option value="A gentle boat ride down a lazy, moonlit river">Moonlit River Cruise</option>
+                    <option value="A quiet library inside an ancient castle during a rainstorm">Rainy Castle Library</option>
                 </select>
             </div>
             
@@ -102,10 +101,8 @@
             <p id="setupStatus" class="text-center text-sm text-[var(--accent)] h-6"></p>
         </div>
 
-        <!-- Player Screen (Hidden initially) -->
+        <!-- Player Screen -->
         <div id="playerScreen" class="hidden flex-col gap-6 h-full">
-            
-            <!-- Sticky Media Controls -->
             <div class="glass-panel p-4 rounded-2xl shadow-2xl sticky top-4 z-10 flex flex-col gap-4">
                 <div class="flex justify-between items-center px-2">
                     <span id="playerStatus" class="text-sm font-medium text-[var(--accent)]">Story Ready</span>
@@ -122,7 +119,6 @@
                 </div>
             </div>
 
-            <!-- Story Text -->
             <div id="storyOutput" class="story-text px-2 pb-24 mt-4"></div>
         </div>
 
@@ -130,7 +126,7 @@
 
     <!-- Settings Modal -->
     <div id="settingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-hidden">
-        <div class="bg-[var(--bg-card)] w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700">
+        <div class="bg-[var(--bg-card)] w-full max-w-md rounded-2xl p-6 shadow-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-semibold">Settings</h2>
                 <button id="closeSettingsBtn" class="text-[var(--text-muted)] hover:text-white">
@@ -138,14 +134,28 @@
                 </button>
             </div>
             
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-6">
+                <!-- API Key Section -->
                 <div>
                     <label class="block text-sm text-[var(--text-muted)] mb-2">Gemini API Key</label>
                     <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full bg-[var(--bg-deep)] border border-gray-700 text-white rounded-xl p-4 focus:outline-none focus:border-[var(--accent)] transition-colors">
-                    <p class="text-xs text-[var(--text-muted)] mt-2">Your key is stored securely on your device and never sent to our servers.</p>
+                    <p class="text-xs text-[var(--text-muted)] mt-2">Stored securely on your device.</p>
                 </div>
-                <button id="saveSettingsBtn" class="w-full py-3 mt-4 rounded-xl font-medium bg-[var(--accent)] text-[#0A0F1D] hover:bg-[var(--accent-hover)] transition-colors">
-                    Save Key
+
+                <!-- Voice Selector Section -->
+                <div>
+                    <label class="block text-sm text-[var(--text-muted)] mb-2">Reader Voice</label>
+                    <select id="voiceSelect" class="w-full bg-[var(--bg-deep)] border border-gray-700 text-white rounded-xl p-4 appearance-none focus:outline-none focus:border-[var(--accent)] transition-colors">
+                        <option value="">Loading voices...</option>
+                    </select>
+                    <p class="text-xs text-[var(--text-muted)] mt-2">Network/Online voices usually sound more natural than local ones.</p>
+                    <button id="testVoiceBtn" class="mt-3 w-full py-2 rounded-lg text-sm border border-gray-600 text-[var(--text-main)] hover:bg-[var(--bg-deep)] transition-colors">
+                        Test Voice
+                    </button>
+                </div>
+
+                <button id="saveSettingsBtn" class="w-full py-3 mt-2 rounded-xl font-medium bg-[var(--accent)] text-[#0A0F1D] hover:bg-[var(--accent-hover)] transition-colors">
+                    Save Changes
                 </button>
             </div>
         </div>
@@ -160,7 +170,10 @@
         const openSettingsBtn = document.getElementById('openSettingsBtn');
         const closeSettingsBtn = document.getElementById('closeSettingsBtn');
         const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        
         const apiKeyInput = document.getElementById('apiKey');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const testVoiceBtn = document.getElementById('testVoiceBtn');
         
         const generateBtn = document.getElementById('generateBtn');
         const setupStatus = document.getElementById('setupStatus');
@@ -181,9 +194,56 @@
         let isPlaying = false;
         let isPaused = false; 
 
-        // Load Voices
-        synth.onvoiceschanged = () => { voices = synth.getVoices(); };
-        if (synth.getVoices().length > 0) voices = synth.getVoices();
+        // --- Voice Loading & Population ---
+        function populateVoiceList() {
+            voices = synth.getVoices();
+            if (voices.length === 0) return;
+
+            // Filter for mostly English voices to keep the list clean
+            const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+            
+            voiceSelect.innerHTML = '';
+            
+            englishVoices.forEach(voice => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} ${voice.localService ? '(Local)' : '(Network)'}`;
+                option.value = voice.voiceURI;
+                voiceSelect.appendChild(option);
+            });
+
+            // Load saved voice or try to find a good default
+            const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
+            if (savedVoiceURI) {
+                voiceSelect.value = savedVoiceURI;
+            } else {
+                // Try to find a good default network female voice
+                const defaultVoice = englishVoices.find(v => 
+                    v.name.includes('Google UK English Female') || 
+                    (v.name.includes('Google') && !v.localService)
+                );
+                if (defaultVoice) voiceSelect.value = defaultVoice.voiceURI;
+            }
+        }
+
+        // Voices load asynchronously in some browsers
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        // Test Voice Button
+        testVoiceBtn.addEventListener('click', () => {
+            const selectedURI = voiceSelect.value;
+            const voice = voices.find(v => v.voiceURI === selectedURI);
+            if (voice) {
+                synth.cancel();
+                const utterance = new SpeechSynthesisUtterance("This is how I will read your bedtime story. Take a deep breath, and relax.");
+                utterance.voice = voice;
+                utterance.rate = 0.85; // slightly slower for bedtime feel
+                utterance.pitch = 0.9;
+                synth.speak(utterance);
+            }
+        });
 
         // 1. App Initialization & Settings
         window.addEventListener('DOMContentLoaded', () => {
@@ -194,16 +254,24 @@
         openSettingsBtn.addEventListener('click', () => {
             settingsModal.classList.remove('modal-hidden');
             settingsModal.classList.add('modal-visible');
+            populateVoiceList(); // Refresh list just in case
         });
 
         const closeSettings = () => {
+            synth.cancel(); // Stop test voice if playing
             settingsModal.classList.remove('modal-visible');
             settingsModal.classList.add('modal-hidden');
         };
+        
         closeSettingsBtn.addEventListener('click', closeSettings);
+        
         saveSettingsBtn.addEventListener('click', () => {
             const key = apiKeyInput.value.trim();
             if (key) localStorage.setItem('gemini_api_key', key);
+            
+            const selectedVoiceURI = voiceSelect.value;
+            if (selectedVoiceURI) localStorage.setItem('gemini_selected_voice', selectedVoiceURI);
+            
             closeSettings();
         });
 
@@ -226,34 +294,18 @@
                 setupStatus.innerText = "Crafting a long, soothing story... (Please wait)";
                 const storyText = await fetchStoryFromAPI(apiKey, modelName, categorySelect.value);
                 
-                // Set the visual text (keep the newlines so it looks nice to read)
                 storyOutput.innerText = storyText;
                 
-                // SMART CHUNKING: Prepare text for speech engine
-                // 1. Remove Markdown asterisks entirely (so it doesn't read "asterisk")
                 let spokenText = storyText.replace(/\*/g, '');
-                
-                // 2. Remove all newlines/linebreaks. We don't want them turned into "dot".
-                // We just want a continuous string of words.
                 spokenText = spokenText.replace(/[\r\n]+/g, ' ');
-
-                // 3. Split by sentence-ending punctuation, KEEPING the punctuation mark.
-                // This regex uses a positive lookbehind to split *after* a period, exclamation mark, or question mark,
-                // but only if it's followed by a space or the end of the string.
-                // It prevents splitting decimals like "3.14" or abbreviations like "Dr.".
                 storyChunks = spokenText.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
-                
-                // Clean up any empty chunks that might have sneaked through
                 storyChunks = storyChunks.filter(chunk => chunk.trim().length > 0);
-                
                 currentChunkIndex = 0;
                 
-                // Switch UI
                 setupScreen.classList.add('hidden');
                 playerScreen.classList.remove('hidden');
                 playerScreen.classList.add('flex');
                 
-                // Reset player state
                 isPlaying = false;
                 isPaused = false;
                 updatePlayButtonUI();
@@ -312,8 +364,6 @@
             }
 
             const textToSpeak = storyChunks[currentChunkIndex].trim();
-            
-            // Safety check: skip if the chunk is just punctuation or empty
             if (!textToSpeak || textToSpeak.length <= 1) {
                 currentChunkIndex++;
                 speakCurrentChunk();
@@ -322,13 +372,17 @@
 
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             
-            if (!voices.length) voices = synth.getVoices();
-            const femaleVoice = voices.find(v => 
-                v.name.includes('Female') || v.name.includes('Samantha') || 
-                v.name.includes('Zira') || v.name.includes('Karen') || 
-                v.name.includes('Victoria') || v.name.includes('Google UK English Female')
-            );
-            if (femaleVoice) utterance.voice = femaleVoice;
+            // USE THE USER'S SELECTED VOICE
+            const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
+            let selectedVoice = null;
+            
+            if (savedVoiceURI && voices.length > 0) {
+                selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
+            }
+            
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+            }
 
             utterance.rate = 0.75; 
             utterance.pitch = 0.9;
@@ -343,7 +397,6 @@
 
             utterance.onerror = (e) => {
                 if (e.error === 'interrupted' || e.error === 'canceled') return;
-                
                 console.error("Audio error:", e);
                 if (isPlaying) {
                     currentChunkIndex++;
@@ -417,7 +470,6 @@
             return data.candidates[0].content.parts[0].text;
         }
         
-        // Safety: cancel audio if user closes tab
         window.addEventListener('beforeunload', () => {
             synth.cancel();
         });
