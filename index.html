@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nightfall | Bedtime Stories</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Nightfall</h1>
+        <p class="subtitle">Drift to sleep with a custom story.</p>
+
+        <div class="setup-section">
+            <input type="password" id="apiKey" placeholder="Enter Gemini API Key" autocomplete="off">
+            <select id="category">
+                <option value="A quiet journey through a bioluminescent forest">Bioluminescent Forest</option>
+                <option value="A peaceful deep-space observation post">Deep Space Observation</option>
+                <option value="A cozy cabin during a gentle snowstorm">Snowy Cabin Retreat</option>
+                <option value="A slow train ride through a magical countryside">Magical Train Ride</option>
+            </select>
+            <button id="startBtn">Generate & Listen</button>
+            <button id="stopBtn" style="display: none;">Stop Audio</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="storyOutput"></div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js');
+            });
+        }
+    </script>
+</body>
+</html>
