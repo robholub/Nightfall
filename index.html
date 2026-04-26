@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nightfall | Bedtime Stories</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Premium Web Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -114,6 +111,30 @@
             background-size: 1.5em 1.5em;
         }
 
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: theme('colors.accent');
+            cursor: pointer;
+            margin-top: -8px;
+            box-shadow: 0 0 10px rgba(139, 159, 234, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+
         /* Modals */
         .modal-overlay {
             opacity: 0;
@@ -137,7 +158,6 @@
 </head>
 <body class="animate-gradient-x min-h-screen flex flex-col items-center font-sans">
 
-    <!-- Top Navigation -->
     <header class="w-full max-w-3xl flex justify-between items-center p-6 sm:p-8 z-10">
         <div class="flex items-center gap-3">
             <i class="ph-fill ph-moon-stars text-3xl text-accent"></i>
@@ -150,10 +170,8 @@
         </button>
     </header>
 
-    <!-- Main Content Area -->
     <main class="w-full max-w-3xl flex-1 flex flex-col relative px-6 sm:px-8 pb-32">
         
-        <!-- Setup Screen -->
         <div id="setupScreen" class="flex-1 flex flex-col justify-center animate-slide-up max-w-lg mx-auto w-full">
             <div class="text-center mb-10">
                 <h2 class="text-3xl sm:text-4xl font-serif text-white mb-4">Drift away.</h2>
@@ -180,12 +198,9 @@
             </div>
         </div>
 
-        <!-- Player Screen (Hidden initially) -->
         <div id="playerScreen" class="hidden flex-col h-full animate-fade-in relative pt-4">
-            <!-- Reader Area -->
             <div id="storyOutput" class="story-text font-serif"></div>
             
-            <!-- Floating Media Controls -->
             <div class="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-md glass-pill rounded-full p-2 flex items-center justify-between z-20 px-4">
                 <button id="backBtn" class="p-3 text-slate-400 hover:text-white transition-colors flex flex-col items-center group">
                     <i class="ph ph-arrow-left text-xl group-hover:-translate-x-1 transition-transform"></i>
@@ -205,7 +220,6 @@
                 </div>
             </div>
             
-            <!-- Floating Status -->
             <div class="fixed bottom-28 left-0 right-0 text-center pointer-events-none z-10">
                 <span id="playerStatus" class="inline-block px-4 py-1 rounded-full bg-night-900/80 backdrop-blur-md text-xs font-medium tracking-wide text-accent border border-white/5 shadow-xl">Story Ready</span>
             </div>
@@ -213,7 +227,6 @@
 
     </main>
 
-    <!-- Settings Modal -->
     <div id="settingsModal" class="fixed inset-0 bg-night-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-overlay">
         <div class="modal-content bg-night-800 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto flex flex-col relative">
             
@@ -224,23 +237,38 @@
             <h2 class="text-2xl font-serif text-white mb-8">Settings</h2>
             
             <div class="flex flex-col gap-8">
-                <!-- Reader Voice Section -->
+                
+                <div class="bg-night-900/50 p-4 rounded-2xl border border-white/5">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i class="ph-fill ph-waves text-accent text-lg"></i>
+                        <h3 class="text-sm font-medium text-slate-200">Ambient Background</h3>
+                    </div>
+                    <select id="ambientSelect" class="w-full bg-night-800 border border-white/10 text-white rounded-xl p-3 appearance-none focus:outline-none focus:border-accent transition-colors mb-4 text-sm">
+                        <option value="none">None</option>
+                        <option value="brown">Deep River (Brown Noise)</option>
+                        <option value="rain">Gentle Rain (Filtered Noise)</option>
+                    </select>
+                    
+                    <div class="flex items-center gap-3">
+                        <i class="ph-fill ph-speaker-low text-slate-400"></i>
+                        <input type="range" id="ambientVol" min="1" max="100" value="20">
+                        <i class="ph-fill ph-speaker-high text-slate-400"></i>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">Narrator Voice</label>
                     <select id="voiceSelect" class="w-full bg-night-900 border border-white/10 text-white rounded-xl p-4 appearance-none focus:outline-none focus:border-accent transition-colors">
                         <option value="">Loading voices...</option>
                     </select>
-                    <p class="text-xs text-slate-400 mt-2">Network voices usually provide the most natural experience. Your selection is saved automatically.</p>
                     <button id="testVoiceBtn" class="mt-3 w-full py-3 rounded-xl text-sm font-medium border border-white/10 text-white hover:bg-white/5 transition-colors flex justify-center items-center gap-2">
-                        <i class="ph-fill ph-waveform"></i> Test Voice
+                        <i class="ph-fill ph-waveform"></i> Test Mix (Voice + Ambient)
                     </button>
                 </div>
 
-                <!-- API Key Section -->
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">Gemini API Key</label>
                     <input type="password" id="apiKey" placeholder="AIzaSy..." class="w-full bg-night-900 border border-white/10 text-white rounded-xl p-4 focus:outline-none focus:border-accent transition-colors">
-                    <p class="text-xs text-slate-400 mt-2">Stored securely in your browser's local storage.</p>
                 </div>
             </div>
         </div>
@@ -257,6 +285,8 @@
         
         const apiKeyInput = document.getElementById('apiKey');
         const voiceSelect = document.getElementById('voiceSelect');
+        const ambientSelect = document.getElementById('ambientSelect');
+        const ambientVolInput = document.getElementById('ambientVol');
         const testVoiceBtn = document.getElementById('testVoiceBtn');
         
         const generateBtn = document.getElementById('generateBtn');
@@ -278,7 +308,99 @@
         let isPlaying = false;
         let isPaused = false; 
 
-        // --- Voices Management ---
+        // --- WEB AUDIO API: Ambient Synthesizer ---
+        let audioCtx = null;
+        let noiseNode = null;
+        let gainNode = null;
+        let filterNode = null;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playAmbientSound(type, volume) {
+            if (type === 'none') {
+                stopAmbientSound();
+                return;
+            }
+
+            initAudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            stopAmbientSound(); 
+
+            const bufferSize = audioCtx.sampleRate * 2; // 2 seconds of noise loop
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+
+            let lastOut = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                let white = Math.random() * 2 - 1;
+                
+                if (type === 'brown') {
+                    // Deep River / Airplane Cabin
+                    data[i] = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = data[i];
+                    data[i] *= 3.5; // Compensate gain
+                } else if (type === 'rain') {
+                    // White noise basis for rain
+                    data[i] = white;
+                }
+            }
+
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = buffer;
+            noiseNode.loop = true;
+
+            gainNode = audioCtx.createGain();
+            // Map 1-100 slider to a comfortable ambient volume range
+            gainNode.gain.value = (volume / 100) * 0.3; 
+
+            filterNode = audioCtx.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            
+            if (type === 'brown') {
+                filterNode.frequency.value = 400; // Muffle highs for deep rumble
+            } else if (type === 'rain') {
+                filterNode.frequency.value = 1200; // Sounds like rain hitting leaves/roof
+            }
+
+            noiseNode.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            noiseNode.start();
+        }
+
+        function stopAmbientSound() {
+            if (noiseNode) {
+                noiseNode.stop();
+                noiseNode.disconnect();
+                noiseNode = null;
+            }
+        }
+
+        function pauseAmbientSound() {
+            if (audioCtx && audioCtx.state === 'running') {
+                audioCtx.suspend();
+            }
+        }
+
+        function resumeAmbientSound() {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function updateAmbientVolume(vol) {
+            if (gainNode && audioCtx) {
+                // Smooth volume transition to prevent popping
+                gainNode.gain.setTargetAtTime((vol / 100) * 0.3, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        // --- Voices & Settings Management ---
         function populateVoiceList() {
             voices = synth.getVoices();
             if (voices.length === 0) return;
@@ -293,12 +415,10 @@
                 voiceSelect.appendChild(option);
             });
 
-            // Restore saved voice immediately
             const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
             if (savedVoiceURI && englishVoices.find(v => v.voiceURI === savedVoiceURI)) {
                 voiceSelect.value = savedVoiceURI;
             } else {
-                // Default fallback
                 const defaultVoice = englishVoices.find(v => 
                     v.name.includes('Google UK English Female') || 
                     (v.name.includes('Google') && !v.localService)
@@ -311,23 +431,33 @@
         }
 
         populateVoiceList();
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = populateVoiceList;
-        }
+        if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
 
-        // Save voice immediately on selection change
-        voiceSelect.addEventListener('change', (e) => {
-            if (e.target.value) {
-                localStorage.setItem('gemini_selected_voice', e.target.value);
-            }
+        // Settings Listeners
+        voiceSelect.addEventListener('change', (e) => localStorage.setItem('gemini_selected_voice', e.target.value));
+        
+        ambientSelect.addEventListener('change', (e) => {
+            localStorage.setItem('gemini_ambient_type', e.target.value);
+            // Instantly preview sound
+            playAmbientSound(e.target.value, ambientVolInput.value);
+        });
+
+        ambientVolInput.addEventListener('input', (e) => {
+            localStorage.setItem('gemini_ambient_vol', e.target.value);
+            updateAmbientVolume(e.target.value);
         });
 
         testVoiceBtn.addEventListener('click', () => {
+            // Play ambient preview if one is selected
+            if (ambientSelect.value !== 'none') {
+                playAmbientSound(ambientSelect.value, ambientVolInput.value);
+            }
+            
             const selectedURI = voiceSelect.value;
             const voice = voices.find(v => v.voiceURI === selectedURI);
             if (voice) {
                 synth.cancel();
-                const utterance = new SpeechSynthesisUtterance("This is how I will read your story tonight. Lie back, and close your eyes.");
+                const utterance = new SpeechSynthesisUtterance("This is how I will read your story tonight. The background noise will play beneath my voice.");
                 utterance.voice = voice;
                 utterance.rate = 0.85; 
                 utterance.pitch = 0.9;
@@ -335,16 +465,19 @@
             }
         });
 
-        // --- App Initialization & API Key ---
+        // --- App Initialization & Load Saves ---
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) apiKeyInput.value = savedKey;
+
+            const savedAmbient = localStorage.getItem('gemini_ambient_type');
+            if (savedAmbient) ambientSelect.value = savedAmbient;
+
+            const savedVol = localStorage.getItem('gemini_ambient_vol');
+            if (savedVol) ambientVolInput.value = savedVol;
         });
 
-        // Save API Key immediately on input change/blur
-        apiKeyInput.addEventListener('change', (e) => {
-            localStorage.setItem('gemini_api_key', e.target.value.trim());
-        });
+        apiKeyInput.addEventListener('change', (e) => localStorage.setItem('gemini_api_key', e.target.value.trim()));
 
         openSettingsBtn.addEventListener('click', () => {
             settingsModal.classList.add('active');
@@ -353,14 +486,15 @@
 
         closeSettingsBtn.addEventListener('click', () => {
             synth.cancel(); 
+            // Only stop ambient sound if the story isn't currently playing
+            if (!isPlaying) stopAmbientSound();
+            
             settingsModal.classList.remove('active');
-            // Ensure key is saved if they typed and clicked close without blurring
             if (apiKeyInput.value.trim()) {
                 localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
             }
         });
         
-        // Close modal on click outside
         settingsModal.addEventListener('click', (e) => {
             if (e.target === settingsModal) closeSettingsBtn.click();
         });
@@ -370,7 +504,6 @@
             const apiKey = apiKeyInput.value.trim();
             if (!apiKey) {
                 openSettingsBtn.click();
-                // Brief timeout to let the modal open
                 setTimeout(() => alert("Please enter your Gemini API Key to begin."), 300);
                 return;
             }
@@ -385,21 +518,18 @@
                 setupStatus.innerText = "Writing your story... (This may take a minute)";
                 const storyText = await fetchStoryFromAPI(apiKey, modelName, categorySelect.value);
                 
-                // Format text for beautiful screen reading (add paragraph tags)
                 const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
                 storyOutput.innerHTML = formattedText;
                 
-                // Chunk text for TTS engine
                 let spokenText = storyText.replace(/\*/g, '').replace(/[\r\n]+/g, ' ');
                 storyChunks = spokenText.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
                 storyChunks = storyChunks.filter(chunk => chunk.trim().length > 0);
                 currentChunkIndex = 0;
                 
-                // UI Transitions
                 setupScreen.classList.add('hidden');
                 playerScreen.classList.remove('hidden');
                 playerScreen.classList.add('flex');
-                window.scrollTo(0, 0); // Scroll to top of story
+                window.scrollTo(0, 0); 
                 
                 isPlaying = false;
                 isPaused = false;
@@ -419,22 +549,36 @@
         // --- Audio Player Logic ---
         playPauseBtn.addEventListener('click', () => {
             if (isPlaying) {
+                // Pause Voice and Ambient
                 synth.cancel();
+                pauseAmbientSound();
                 isPlaying = false;
                 isPaused = true;
                 playerStatus.innerText = "Paused";
                 updatePlayButtonUI();
             } else {
+                // Play Voice and Ambient
                 isPlaying = true;
                 isPaused = false;
                 playerStatus.innerText = "Reading softly...";
                 updatePlayButtonUI();
                 speakCurrentChunk();
+                
+                // Manage Ambient Audio Context
+                const type = ambientSelect.value;
+                if (type !== 'none') {
+                    if (audioCtx && audioCtx.state === 'suspended' && noiseNode) {
+                        resumeAmbientSound();
+                    } else if (!noiseNode) {
+                        playAmbientSound(type, ambientVolInput.value);
+                    }
+                }
             }
         });
 
         stopBtn.addEventListener('click', () => {
             synth.cancel();
+            stopAmbientSound();
             isPlaying = false;
             isPaused = false;
             currentChunkIndex = 0; 
@@ -444,6 +588,7 @@
 
         backBtn.addEventListener('click', () => {
             synth.cancel();
+            stopAmbientSound();
             isPlaying = false;
             playerScreen.classList.add('hidden');
             playerScreen.classList.remove('flex');
@@ -455,6 +600,7 @@
             if (!isPlaying) return; 
             if (currentChunkIndex >= storyChunks.length) {
                 isPlaying = false;
+                stopAmbientSound(); // Turn off rain when story ends
                 playerStatus.innerText = "Story complete. Sweet dreams.";
                 updatePlayButtonUI();
                 return;
@@ -469,16 +615,13 @@
 
             const utterance = new SpeechSynthesisUtterance(textToSpeak);
             
-            // STRICT VOICE ENFORCEMENT
             const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
             if (savedVoiceURI && voices.length > 0) {
                 const selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
-                if (selectedVoice) {
-                    utterance.voice = selectedVoice;
-                }
+                if (selectedVoice) utterance.voice = selectedVoice;
             }
 
-            utterance.rate = 0.8; // Calming pace
+            utterance.rate = 0.8; 
             utterance.pitch = 0.9;
             utterance.volume = 1.0;
 
@@ -505,11 +648,11 @@
             if (isPlaying) {
                 playIcon.classList.remove('ph-play');
                 playIcon.classList.add('ph-pause');
-                playIcon.classList.remove('ml-1'); // Center pause icon perfectly
+                playIcon.classList.remove('ml-1'); 
             } else {
                 playIcon.classList.remove('ph-pause');
                 playIcon.classList.add('ph-play');
-                playIcon.classList.add('ml-1'); // Optical alignment for play icon
+                playIcon.classList.add('ml-1'); 
             }
         }
 
@@ -568,6 +711,7 @@
         
         window.addEventListener('beforeunload', () => {
             synth.cancel();
+            stopAmbientSound();
         });
     </script>
 </body>
