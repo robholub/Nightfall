@@ -17,15 +17,21 @@ startBtn.addEventListener('click', async () => {
         return;
     }
 
+    // MOBILE CHROME AUDIO FIX: 
+    // We must speak immediately on button press to unlock the Web Speech API on Android.
+    // If we wait for the AI to generate the story first, Android will block the audio.
+    wakeUpSpeechEngine();
+
     try {
         startBtn.disabled = true;
         
-        // 1. Check/Cache Models
+        // 1. Check/Cache Models (Now with a cache-buster for the old bad model)
         const modelName = await getOrFetchModel(apiKey);
         
         // 2. Generate Story
         statusDiv.innerText = `Writing your bedtime story using ${modelName.split('/')[1]}... (This may take a minute)`;
         storyOutput.innerText = "";
+        
         const storyText = await generateStory(apiKey, modelName, category);
         
         // 3. Display and Read Story
@@ -39,7 +45,7 @@ startBtn.addEventListener('click', async () => {
     } catch (error) {
         statusDiv.innerText = "Error: " + error.message;
         startBtn.disabled = false;
-        // If it was a model error, clear the cache so it tries again next time
+        // Clear cache if there's an error so it doesn't get stuck
         localStorage.removeItem('gemini_preferred_model');
     }
 });
@@ -52,9 +58,26 @@ stopBtn.addEventListener('click', () => {
     statusDiv.innerText = "Audio stopped.";
 });
 
+function wakeUpSpeechEngine() {
+    // This immediately engages the speech engine on the user's tap gesture
+    synth.cancel(); // Clear anything pending
+    const wakeUpUtterance = new SpeechSynthesisUtterance("Preparing your story...");
+    wakeUpUtterance.volume = 0.5;
+    wakeUpUtterance.rate = 1.0;
+    synth.speak(wakeUpUtterance);
+}
+
 async function getOrFetchModel(apiKey) {
     // Check localStorage first
-    const cachedModel = localStorage.getItem('gemini_preferred_model');
+    let cachedModel = localStorage.getItem('gemini_preferred_model');
+    
+    // CACHE BUSTER: If the user has the old deprecated model stuck in their browser, clear it.
+    if (cachedModel && cachedModel.includes('gemini-1.5-pro-latest')) {
+        console.log("Found deprecated model in cache. Clearing it.");
+        localStorage.removeItem('gemini_preferred_model');
+        cachedModel = null;
+    }
+
     if (cachedModel) {
         console.log("Using cached model:", cachedModel);
         return cachedModel;
@@ -79,7 +102,7 @@ async function getOrFetchModel(apiKey) {
         throw new Error("No suitable text generation models found for this API key.");
     }
     
-    // Prefer the newer Flash models, otherwise fallback to the first valid model returned
+    // Prefer Flash 2.5, then Flash 1.5, otherwise grab the first available model
     const preferredModel = validModels.find(m => m.name.includes('gemini-2.5-flash')) || 
                            validModels.find(m => m.name.includes('gemini-1.5-flash')) || 
                            validModels[0];
