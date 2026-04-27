@@ -656,9 +656,26 @@
                 const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
                 storyOutput.innerHTML = formattedText;
                 
-                let spokenText = storyText.replace(/\*/g, '').replace(/[\r\n]+/g, ' ');
-                storyChunks = spokenText.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
-                storyChunks = storyChunks.filter(chunk => chunk.trim().length > 0);
+                let spokenText = storyText.replace(/\*/g, '');
+                let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+                rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
+                
+                // SMART CHUNKING: Group sentences to avoid Gemini Free Tier API rate limits (15 RPM).
+                // We aim for ~600 characters per chunk (approx 30-45 seconds of reading), 
+                // meaning we only make 1.5 to 2 requests per minute.
+                storyChunks = [];
+                let tempChunk = "";
+                
+                for (let sentence of rawSentences) {
+                    if (tempChunk.length + sentence.length < 600) {
+                        tempChunk += (tempChunk.length > 0 ? " " : "") + sentence;
+                    } else {
+                        if (tempChunk) storyChunks.push(tempChunk);
+                        tempChunk = sentence;
+                    }
+                }
+                if (tempChunk) storyChunks.push(tempChunk);
+                
                 currentChunkIndex = 0;
                 
                 setupScreen.classList.add('hidden');
