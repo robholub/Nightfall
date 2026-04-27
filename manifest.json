@@ -1,0 +1,18 @@
+{
+  "name": "Nightfall Bedtime Stories",
+  "short_name": "Nightfall",
+  "description": "AI-generated bedtime stories and ambient sounds to help you drift away.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060913",
+  "theme_color": "#060913",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%238B9FEA'/><path d='M50 20 A30 30 0 1 0 80 50 A40 40 0 0 1 50 20 Z' fill='%23060913'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
