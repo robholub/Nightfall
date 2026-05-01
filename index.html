@@ -228,7 +228,27 @@
                             <option value="">Loading voices...</option>
                         </optgroup>
                     </select>
-                    <button id="testVoiceBtn" class="mt-3 w-full py-3 rounded-xl text-sm font-medium border border-white/10 text-white hover:bg-white/5 transition-colors flex justify-center items-center gap-2">
+                    
+                    <!-- Pitch and Speed Sliders -->
+                    <div class="flex flex-col gap-4 mt-4 bg-night-900/30 p-4 rounded-xl border border-white/5">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs text-slate-400 uppercase tracking-wider">Reading Speed</label>
+                                <span id="speedValDisplay" class="text-xs font-bold text-accent">0.8x</span>
+                            </div>
+                            <input type="range" id="voiceSpeed" min="0.5" max="1.5" step="0.05" value="0.8">
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="text-xs text-slate-400 uppercase tracking-wider">Voice Pitch</label>
+                                <span id="pitchValDisplay" class="text-xs font-bold text-accent">0.9</span>
+                            </div>
+                            <input type="range" id="voicePitch" min="0.5" max="1.5" step="0.05" value="0.9">
+                        </div>
+                        <p class="text-[10px] text-slate-500 leading-tight">Note: Sliders apply exact adjustments to Local Voices. Gemini Cloud Voices will dynamically interpret these settings for a natural sound.</p>
+                    </div>
+
+                    <button id="testVoiceBtn" class="mt-4 w-full py-3 rounded-xl text-sm font-medium border border-white/10 text-white hover:bg-white/5 transition-colors flex justify-center items-center gap-2">
                         <i class="ph-fill ph-waveform"></i> Test Mix (Voice + Ambient)
                     </button>
                 </div>
@@ -253,6 +273,13 @@
         const voiceSelect = document.getElementById('voiceSelect');
         const ambientSelect = document.getElementById('ambientSelect');
         const ambientVolInput = document.getElementById('ambientVol');
+        
+        // Voice Control Elements
+        const voiceSpeedInput = document.getElementById('voiceSpeed');
+        const voicePitchInput = document.getElementById('voicePitch');
+        const speedValDisplay = document.getElementById('speedValDisplay');
+        const pitchValDisplay = document.getElementById('pitchValDisplay');
+
         const testVoiceBtn = document.getElementById('testVoiceBtn');
         const generateBtn = document.getElementById('generateBtn');
         const setupStatus = document.getElementById('setupStatus');
@@ -273,42 +300,31 @@
         let isPaused = false; 
         let geminiAudioSource = null; 
         
-        // CONCURRENCY LOCK: Prevents multiple API audio fetches from overlapping 
+        // CONCURRENCY LOCK
         let currentPlaybackId = 0; 
 
         // --- FETCH UTILITY WITH EXPONENTIAL BACKOFF ---
-        // Solves the "Model Busy / Overloaded" issue gracefully
         async function fetchWithRetry(url, options, maxRetries = 5) {
             let delay = 1000;
             for (let i = 0; i < maxRetries; i++) {
                 try {
                     const response = await fetch(url, options);
-                    
-                    // Do not retry on Bad Request (400) or Unauthorized (403/API Key Error)
                     if (!response.ok && response.status !== 503 && response.status !== 429 && response.status !== 500) {
                          const err = await response.json().catch(()=>({}));
                          throw new Error(err.error?.message || `HTTP Error ${response.status}`);
                     }
-                    
-                    if (!response.ok) {
-                        throw new Error(`Model overloaded (HTTP ${response.status})`);
-                    }
-                    
-                    return response; // Success!
+                    if (!response.ok) throw new Error(`Model overloaded (HTTP ${response.status})`);
+                    return response; 
                 } catch (err) {
-                    if (i === maxRetries - 1 || err.message.includes("API key not valid")) {
-                        throw err; // Out of retries or fatal error
-                    }
+                    if (i === maxRetries - 1 || err.message.includes("API key not valid")) throw err; 
                     console.warn(`Fetch failed (${err.message}). Retrying in ${delay}ms...`);
-                    // Update UI if we are in the middle of fetching TTS audio
                     if (playerStatus.innerText.includes("Generating")) {
                         playerStatus.innerText = "Network busy. Retrying softly...";
                     } else if (setupStatus.innerText.includes("Writing")) {
                         setupStatus.innerText = "Gemini is busy. Retrying automatically...";
                     }
-                    
                     await new Promise(res => setTimeout(res, delay));
-                    delay *= 2; // Double the wait time: 1s, 2s, 4s, 8s, 16s
+                    delay *= 2; 
                 }
             }
         }
@@ -432,6 +448,7 @@
         populateVoiceList();
         if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = populateVoiceList;
 
+        // Settings Listeners
         voiceSelect.addEventListener('change', (e) => localStorage.setItem('gemini_selected_voice', e.target.value));
         ambientSelect.addEventListener('change', (e) => {
             localStorage.setItem('gemini_ambient_type', e.target.value);
@@ -442,11 +459,23 @@
             updateAmbientVolume(e.target.value);
         });
 
+        // Pitch & Speed Listeners
+        voiceSpeedInput.addEventListener('input', (e) => {
+            speedValDisplay.innerText = `${e.target.value}x`;
+            localStorage.setItem('gemini_voice_speed', e.target.value);
+        });
+        voicePitchInput.addEventListener('input', (e) => {
+            pitchValDisplay.innerText = parseFloat(e.target.value).toFixed(2);
+            localStorage.setItem('gemini_voice_pitch', e.target.value);
+        });
+
         testVoiceBtn.addEventListener('click', async () => {
             if (ambientSelect.value !== 'none') playAmbientSound(ambientSelect.value, ambientVolInput.value);
             
             const selectedURI = voiceSelect.value;
             const testText = "This is how I will read your story tonight. The background noise will play beneath my voice. Close your eyes, and relax.";
+            const speed = parseFloat(voiceSpeedInput.value);
+            const pitch = parseFloat(voicePitchInput.value);
 
             if (selectedURI.startsWith('gemini-')) {
                 const apiKey = apiKeyInput.value.trim();
@@ -457,10 +486,10 @@
                 
                 try {
                     const voiceName = selectedURI.replace('gemini-', '');
-                    const audioData = await fetchGeminiTTS(testText, voiceName, apiKey);
+                    const audioData = await fetchGeminiTTS(testText, voiceName, apiKey, speed, pitch);
                     const sampleRate = parseInt(audioData.mimeType.match(/rate=(\d+)/)?.[1] || "24000", 10);
                     if (geminiAudioSource) try { geminiAudioSource.stop(); } catch(e){}
-                    geminiAudioSource = await playPCM16(audioData.data, sampleRate);
+                    geminiAudioSource = await playPCM16(audioData.data, sampleRate, speed);
                 } catch(err) {
                     alert("Error: " + err.message);
                 }
@@ -471,7 +500,8 @@
                 synth.cancel();
                 const utterance = new SpeechSynthesisUtterance(testText);
                 utterance.voice = voices.find(v => v.voiceURI === selectedURI);
-                utterance.rate = 0.85; utterance.pitch = 0.9;
+                utterance.rate = speed; 
+                utterance.pitch = pitch;
                 synth.speak(utterance);
             }
         });
@@ -480,6 +510,12 @@
             const savedKey = localStorage.getItem('gemini_api_key'); if (savedKey) apiKeyInput.value = savedKey;
             const savedAmbient = localStorage.getItem('gemini_ambient_type'); if (savedAmbient) ambientSelect.value = savedAmbient;
             const savedVol = localStorage.getItem('gemini_ambient_vol'); if (savedVol) ambientVolInput.value = savedVol;
+            
+            const savedSpeed = localStorage.getItem('gemini_voice_speed'); 
+            if (savedSpeed) { voiceSpeedInput.value = savedSpeed; speedValDisplay.innerText = `${savedSpeed}x`; }
+            
+            const savedPitch = localStorage.getItem('gemini_voice_pitch'); 
+            if (savedPitch) { voicePitchInput.value = savedPitch; pitchValDisplay.innerText = parseFloat(savedPitch).toFixed(2); }
         });
 
         apiKeyInput.addEventListener('change', (e) => localStorage.setItem('gemini_api_key', e.target.value.trim()));
@@ -514,7 +550,7 @@
                 let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
                 rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
                 
-                // SMART CHUNKING: Group sentences into ~600 character blocks to prevent Free Tier Rate Limit crashes.
+                // SMART CHUNKING
                 storyChunks = [];
                 let tempChunk = "";
                 for (let sentence of rawSentences) {
@@ -543,9 +579,9 @@
             }
         });
 
-        // --- Audio Player Logic with Concurrency Locks ---
+        // --- Audio Player Logic ---
         playPauseBtn.addEventListener('click', () => {
-            currentPlaybackId++; // Generate new lock ID on every play/pause action
+            currentPlaybackId++; 
 
             if (isPlaying) {
                 synth.cancel();
@@ -559,7 +595,7 @@
                 playerStatus.innerText = "Reading softly...";
                 updatePlayButtonUI();
                 
-                speakCurrentChunk(currentPlaybackId); // Pass lock ID down the chain
+                speakCurrentChunk(currentPlaybackId); 
                 
                 const type = ambientSelect.value;
                 if (type !== 'none') {
@@ -570,7 +606,7 @@
         });
 
         stopBtn.addEventListener('click', () => {
-            currentPlaybackId++; // Break locks
+            currentPlaybackId++; 
             synth.cancel();
             if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} geminiAudioSource = null; }
             stopAmbientSound();
@@ -580,7 +616,7 @@
         });
 
         backBtn.addEventListener('click', () => {
-            currentPlaybackId++; // Break locks
+            currentPlaybackId++; 
             synth.cancel();
             if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} geminiAudioSource = null; }
             stopAmbientSound();
@@ -590,7 +626,6 @@
         });
 
         async function speakCurrentChunk(playbackId) {
-            // Verify lock: abort if user pressed pause/stop/play while we were entering function
             if (!isPlaying || playbackId !== currentPlaybackId) return; 
 
             if (currentChunkIndex >= storyChunks.length) {
@@ -608,6 +643,8 @@
             }
 
             const savedVoiceURI = localStorage.getItem('gemini_selected_voice');
+            const speed = parseFloat(voiceSpeedInput.value);
+            const pitch = parseFloat(voicePitchInput.value);
 
             if (savedVoiceURI && savedVoiceURI.startsWith('gemini-')) {
                 // CLOUD TTS
@@ -616,19 +653,18 @@
                     const apiKey = apiKeyInput.value.trim();
                     const voiceName = savedVoiceURI.replace('gemini-', '');
                     
-                    // Uses exponential backoff to survive "Model Busy" responses automatically
-                    const audioData = await fetchGeminiTTS(textToSpeak, voiceName, apiKey);
+                    const audioData = await fetchGeminiTTS(textToSpeak, voiceName, apiKey, speed, pitch);
                     
-                    // STRICT VERIFICATION: Verify lock again. The fetch took time. Did the user touch the controls?
                     if (!isPlaying || playbackId !== currentPlaybackId) return; 
                     
                     playerStatus.innerText = "Reading softly...";
                     const sampleRate = parseInt(audioData.mimeType.match(/rate=(\d+)/)?.[1] || "24000", 10);
-                    geminiAudioSource = await playPCM16(audioData.data, sampleRate);
+                    
+                    // We apply the speed directly to the Web Audio buffer playback rate as well
+                    geminiAudioSource = await playPCM16(audioData.data, sampleRate, speed);
                     
                     geminiAudioSource.onended = () => {
                         geminiAudioSource = null;
-                        // Verify lock one final time before chaining next chunk
                         if (isPlaying && playbackId === currentPlaybackId) {
                             currentChunkIndex++;
                             speakCurrentChunk(playbackId);
@@ -649,10 +685,12 @@
                     const selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
                     if (selectedVoice) utterance.voice = selectedVoice;
                 }
-                utterance.rate = 0.8; utterance.pitch = 0.9; utterance.volume = 1.0;
+                
+                utterance.rate = speed; 
+                utterance.pitch = pitch; 
+                utterance.volume = 1.0;
 
                 utterance.onend = () => {
-                    // Local TTS is synchronous, but we check lock for safety
                     if (isPlaying && playbackId === currentPlaybackId) {
                         currentChunkIndex++;
                         speakCurrentChunk(playbackId);
@@ -676,7 +714,7 @@
             }
         }
 
-        // --- API Calls utilizing the new Retry Engine ---
+        // --- API Calls ---
         async function getValidModel(apiKey) {
             let cachedModel = localStorage.getItem('gemini_preferred_model');
             if (cachedModel && cachedModel.includes('latest')) { localStorage.removeItem('gemini_preferred_model'); cachedModel = null; }
@@ -710,9 +748,19 @@
             return data.candidates[0].content.parts[0].text;
         }
 
-        async function fetchGeminiTTS(text, voiceName, apiKey) {
-            // Updated Prompt: Guides the model away from whispering, towards a calm, gentle, and soothing tone.
-            const promptText = `Read this bedtime story line slowly, using a calm, gentle, and soothing voice:\n\n${text}`;
+        async function fetchGeminiTTS(text, voiceName, apiKey, speed, pitch) {
+            // Translate numerical slider values to text instructions for the AI model
+            let paceStr = "at a steady pace";
+            if (speed < 0.7) paceStr = "very slowly";
+            else if (speed < 0.9) paceStr = "slowly";
+            else if (speed > 1.1) paceStr = "a bit quickly";
+
+            let pitchStr = "calm, natural";
+            if (pitch < 0.8) pitchStr = "deep, low-pitched";
+            else if (pitch > 1.2) pitchStr = "higher-pitched, gentle";
+
+            const promptText = `Read this bedtime story line ${paceStr}, using a ${pitchStr}, soothing voice:\n\n${text}`;
+            
             const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: promptText }] }],
@@ -732,7 +780,7 @@
             return result.candidates[0].content.parts[0].inlineData;
         }
 
-        async function playPCM16(base64Data, sampleRate) {
+        async function playPCM16(base64Data, sampleRate, speed) {
             initAudioContext();
             if (audioCtx.state === 'suspended') await audioCtx.resume();
             
@@ -750,6 +798,10 @@
 
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
+            
+            // Explicitly apply playback rate to force speed changes on Gemini TTS
+            source.playbackRate.value = speed;
+            
             source.connect(audioCtx.destination);
             source.start();
             return source;
