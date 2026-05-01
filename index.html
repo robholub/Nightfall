@@ -711,7 +711,8 @@
         }
 
         async function fetchGeminiTTS(text, voiceName, apiKey) {
-            const promptText = `Say this bedtime story line extremely softly, slowly, and in a calming whisper:\n\n${text}`;
+            // Updated Prompt: Guides the model away from whispering, towards a calm, gentle, and soothing tone.
+            const promptText = `Read this bedtime story line slowly, using a calm, gentle, and soothing voice:\n\n${text}`;
             const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: promptText }] }],
