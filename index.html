@@ -546,9 +546,20 @@
                 const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
                 storyOutput.innerHTML = formattedText;
                 
-                // ONE MASSIVE CHUNK FOR API (Prevents multi-request limits)
+                // TWO CHUNKS FOR API (Balances Rate Limits and Generation Timeouts)
                 let spokenText = storyText.replace(/\*/g, '');
-                storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')]; 
+                let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+                rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
+                
+                if (rawSentences.length > 1) {
+                    const midPoint = Math.floor(rawSentences.length / 2);
+                    storyChunks = [
+                        rawSentences.slice(0, midPoint).join(' '),
+                        rawSentences.slice(midPoint).join(' ')
+                    ];
+                } else {
+                    storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')];
+                }
                 
                 currentChunkIndex = 0;
                 setupScreen.classList.add('hidden'); playerScreen.classList.remove('hidden'); playerScreen.classList.add('flex');
@@ -634,9 +645,9 @@
             const pitch = parseFloat(voicePitchInput.value);
 
             if (savedVoiceURI && savedVoiceURI.startsWith('gemini-')) {
-                // CLOUD TTS (One massive call)
+                // CLOUD TTS (Split roughly in half)
                 try {
-                    playerStatus.innerText = "Generating full audio... (This may take a minute for a long story)";
+                    playerStatus.innerText = `Generating audio (Part ${currentChunkIndex + 1} of ${storyChunks.length})...`;
                     const apiKey = apiKeyInput.value.trim();
                     const voiceName = savedVoiceURI.replace('gemini-', '');
                     
