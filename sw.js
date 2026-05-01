@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nightfall-cache-v1.3';
+const CACHE_NAME = 'nightfall-cache-v1.4';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
