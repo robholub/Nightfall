@@ -546,22 +546,9 @@
                 const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
                 storyOutput.innerHTML = formattedText;
                 
+                // ONE MASSIVE CHUNK FOR API (Prevents multi-request limits)
                 let spokenText = storyText.replace(/\*/g, '');
-                let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
-                rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
-                
-                // SMART CHUNKING
-                storyChunks = [];
-                let tempChunk = "";
-                for (let sentence of rawSentences) {
-                    if (tempChunk.length + sentence.length < 600) {
-                        tempChunk += (tempChunk.length > 0 ? " " : "") + sentence;
-                    } else {
-                        if (tempChunk) storyChunks.push(tempChunk);
-                        tempChunk = sentence;
-                    }
-                }
-                if (tempChunk) storyChunks.push(tempChunk);
+                storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')]; 
                 
                 currentChunkIndex = 0;
                 setupScreen.classList.add('hidden'); playerScreen.classList.remove('hidden'); playerScreen.classList.add('flex');
@@ -647,9 +634,9 @@
             const pitch = parseFloat(voicePitchInput.value);
 
             if (savedVoiceURI && savedVoiceURI.startsWith('gemini-')) {
-                // CLOUD TTS
+                // CLOUD TTS (One massive call)
                 try {
-                    playerStatus.innerText = "Generating voice...";
+                    playerStatus.innerText = "Generating full audio... (This may take a minute for a long story)";
                     const apiKey = apiKeyInput.value.trim();
                     const voiceName = savedVoiceURI.replace('gemini-', '');
                     
@@ -660,7 +647,6 @@
                     playerStatus.innerText = "Reading softly...";
                     const sampleRate = parseInt(audioData.mimeType.match(/rate=(\d+)/)?.[1] || "24000", 10);
                     
-                    // We apply the speed directly to the Web Audio buffer playback rate as well
                     geminiAudioSource = await playPCM16(audioData.data, sampleRate, speed);
                     
                     geminiAudioSource.onended = () => {
@@ -672,37 +658,47 @@
                     };
                 } catch(err) {
                     console.error("Gemini TTS Error:", err);
-                    playerStatus.innerText = "Audio error. Skipping sentence...";
+                    playerStatus.innerText = "Audio error. Model may have timed out.";
                     if (isPlaying && playbackId === currentPlaybackId) {
                         currentChunkIndex++;
                         speakCurrentChunk(playbackId); 
                     }
                 }
             } else {
-                // LOCAL TTS
-                const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                if (savedVoiceURI && voices.length > 0) {
-                    const selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
-                    if (selectedVoice) utterance.voice = selectedVoice;
-                }
-                
-                utterance.rate = speed; 
-                utterance.pitch = pitch; 
-                utterance.volume = 1.0;
+                // LOCAL TTS (Recursively chunks for Android crash prevention)
+                let localSentences = textToSpeak.split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+                localSentences = localSentences.filter(s => s.trim().length > 0);
+                let localIdx = 0;
 
-                utterance.onend = () => {
-                    if (isPlaying && playbackId === currentPlaybackId) {
+                function playNextLocal() {
+                    if (!isPlaying || playbackId !== currentPlaybackId) return;
+                    if (localIdx >= localSentences.length) {
                         currentChunkIndex++;
                         speakCurrentChunk(playbackId);
+                        return;
                     }
-                };
-                utterance.onerror = (e) => {
-                    if (e.error === 'interrupted' || e.error === 'canceled') return;
-                    if (isPlaying && playbackId === currentPlaybackId) {
-                        currentChunkIndex++; speakCurrentChunk(playbackId);
+                    
+                    const utterance = new SpeechSynthesisUtterance(localSentences[localIdx].trim());
+                    if (savedVoiceURI && voices.length > 0) {
+                        const selectedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
+                        if (selectedVoice) utterance.voice = selectedVoice;
                     }
-                };
-                synth.speak(utterance);
+                    utterance.rate = speed; 
+                    utterance.pitch = pitch; 
+                    utterance.volume = 1.0;
+
+                    utterance.onend = () => {
+                        localIdx++;
+                        playNextLocal();
+                    };
+                    utterance.onerror = (e) => {
+                        if (e.error === 'interrupted' || e.error === 'canceled') return;
+                        localIdx++;
+                        playNextLocal();
+                    };
+                    synth.speak(utterance);
+                }
+                playNextLocal();
             }
         }
 
@@ -749,7 +745,6 @@
         }
 
         async function fetchGeminiTTS(text, voiceName, apiKey, speed, pitch) {
-            // Translate numerical slider values to text instructions for the AI model
             let paceStr = "at a steady pace";
             if (speed < 0.7) paceStr = "very slowly";
             else if (speed < 0.9) paceStr = "slowly";
@@ -798,8 +793,6 @@
 
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
-            
-            // Explicitly apply playback rate to force speed changes on Gemini TTS
             source.playbackRate.value = speed;
             
             source.connect(audioCtx.destination);
