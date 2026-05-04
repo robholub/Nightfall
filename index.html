@@ -120,9 +120,14 @@
                 <h1 class="text-2xl font-semibold tracking-wide text-white">Nightfall</h1>
             </div>
         </div>
-        <button id="openSettingsBtn" class="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white">
-            <i class="ph ph-sliders-horizontal text-2xl"></i>
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="openLibraryBtn" class="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white" title="My Library">
+                <i class="ph ph-books text-2xl"></i>
+            </button>
+            <button id="openSettingsBtn" class="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white" title="Settings">
+                <i class="ph ph-sliders-horizontal text-2xl"></i>
+            </button>
+        </div>
     </header>
 
     <!-- Main Content Area -->
@@ -187,7 +192,7 @@
     <!-- Settings Modal -->
     <div id="settingsModal" class="fixed inset-0 bg-night-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-overlay">
         <div class="modal-content bg-night-800 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/10 max-h-[90vh] overflow-y-auto flex flex-col relative">
-            <button id="closeSettingsBtn" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors">
+            <button id="closeSettingsBtn" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors z-10">
                 <i class="ph ph-x text-lg"></i>
             </button>
             <h2 class="text-2xl font-serif text-white mb-8">Settings</h2>
@@ -245,7 +250,6 @@
                             </div>
                             <input type="range" id="voicePitch" min="0.5" max="1.5" step="0.05" value="0.9">
                         </div>
-                        <p class="text-[10px] text-slate-500 leading-tight">Note: Sliders apply exact adjustments to Local Voices. Gemini Cloud Voices will dynamically interpret these settings for a natural sound.</p>
                     </div>
 
                     <button id="testVoiceBtn" class="mt-4 w-full py-3 rounded-xl text-sm font-medium border border-white/10 text-white hover:bg-white/5 transition-colors flex justify-center items-center gap-2">
@@ -262,10 +266,27 @@
         </div>
     </div>
 
+    <!-- Library Modal -->
+    <div id="libraryModal" class="fixed inset-0 bg-night-900/80 backdrop-blur-sm z-50 flex justify-center items-center p-4 modal-overlay">
+        <div class="modal-content bg-night-800 w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/10 max-h-[90vh] flex flex-col relative">
+            <button id="closeLibraryBtn" class="absolute top-6 right-6 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-full transition-colors z-10">
+                <i class="ph ph-x text-lg"></i>
+            </button>
+            <h2 class="text-2xl font-serif text-white mb-2">My Library</h2>
+            <p class="text-sm text-slate-400 mb-6">Your last 10 generated stories.</p>
+            
+            <div id="libraryList" class="flex flex-col gap-4 overflow-y-auto pr-2 pb-4 flex-1">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </div>
+    </div>
+
     <script>
         // DOM Elements
         const setupScreen = document.getElementById('setupScreen');
         const playerScreen = document.getElementById('playerScreen');
+        
+        // Settings Elements
         const settingsModal = document.getElementById('settingsModal');
         const openSettingsBtn = document.getElementById('openSettingsBtn');
         const closeSettingsBtn = document.getElementById('closeSettingsBtn');
@@ -273,17 +294,24 @@
         const voiceSelect = document.getElementById('voiceSelect');
         const ambientSelect = document.getElementById('ambientSelect');
         const ambientVolInput = document.getElementById('ambientVol');
-        
-        // Voice Control Elements
         const voiceSpeedInput = document.getElementById('voiceSpeed');
         const voicePitchInput = document.getElementById('voicePitch');
         const speedValDisplay = document.getElementById('speedValDisplay');
         const pitchValDisplay = document.getElementById('pitchValDisplay');
-
         const testVoiceBtn = document.getElementById('testVoiceBtn');
+        
+        // Library Elements
+        const libraryModal = document.getElementById('libraryModal');
+        const openLibraryBtn = document.getElementById('openLibraryBtn');
+        const closeLibraryBtn = document.getElementById('closeLibraryBtn');
+        const libraryList = document.getElementById('libraryList');
+
+        // Setup Elements
         const generateBtn = document.getElementById('generateBtn');
         const setupStatus = document.getElementById('setupStatus');
         const categorySelect = document.getElementById('category');
+        
+        // Player Elements
         const playPauseBtn = document.getElementById('playPauseBtn');
         const playIcon = document.getElementById('playIcon');
         const stopBtn = document.getElementById('stopBtn');
@@ -299,6 +327,9 @@
         let isPlaying = false;
         let isPaused = false; 
         let geminiAudioSource = null; 
+        
+        // STORY HISTORY
+        let storyHistory = JSON.parse(localStorage.getItem('gemini_story_history') || '[]');
         
         // CONCURRENCY LOCK
         let currentPlaybackId = 0; 
@@ -422,6 +453,15 @@
         function resumeAmbientSound() { if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
         function updateAmbientVolume(vol) { if (masterGainNode && audioCtx) masterGainNode.gain.setTargetAtTime(vol / 100, audioCtx.currentTime, 0.1); }
 
+        function stopEverything() {
+            currentPlaybackId++; 
+            synth.cancel();
+            if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} geminiAudioSource = null; }
+            stopAmbientSound();
+            isPlaying = false;
+            isPaused = false;
+        }
+
         // --- Voices & Settings Management ---
         function populateVoiceList() {
             voices = synth.getVoices();
@@ -506,6 +546,89 @@
             }
         });
 
+        // --- Library Logic ---
+        function saveStoryToHistory(text, categoryLabel) {
+            const story = {
+                id: Date.now().toString(),
+                title: categoryLabel,
+                date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
+                text: text
+            };
+            storyHistory.unshift(story);
+            if (storyHistory.length > 10) storyHistory.pop(); // Keep only last 10
+            localStorage.setItem('gemini_story_history', JSON.stringify(storyHistory));
+        }
+
+        function renderLibrary() {
+            libraryList.innerHTML = '';
+            if (storyHistory.length === 0) {
+                libraryList.innerHTML = '<p class="text-slate-400 text-center mt-4">Your library is empty. Generate a story to save it here.</p>';
+                return;
+            }
+
+            storyHistory.forEach(story => {
+                const card = document.createElement('div');
+                card.className = "bg-night-900/50 border border-white/5 rounded-2xl p-4 flex justify-between items-center transition-colors hover:bg-night-900/80 cursor-pointer group";
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = "flex-1";
+                infoDiv.innerHTML = `
+                    <h4 class="text-white font-medium text-lg leading-tight mb-1 group-hover:text-accent transition-colors">${story.title}</h4>
+                    <p class="text-xs text-slate-400"><i class="ph ph-calendar-blank"></i> ${story.date}</p>
+                `;
+                
+                // Play Button
+                const playBtn = document.createElement('button');
+                playBtn.className = "w-12 h-12 flex justify-center items-center rounded-full bg-accent/10 text-accent hover:bg-accent hover:text-night-900 transition-colors shrink-0 ml-4";
+                playBtn.innerHTML = '<i class="ph-fill ph-play text-xl"></i>';
+                playBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    loadStoryFromLibrary(story.id);
+                };
+
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = "w-10 h-10 flex justify-center items-center rounded-full text-slate-500 hover:text-red-400 transition-colors shrink-0 ml-2";
+                delBtn.innerHTML = '<i class="ph ph-trash text-lg"></i>';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteStoryFromLibrary(story.id);
+                };
+
+                card.onclick = () => loadStoryFromLibrary(story.id);
+                
+                card.appendChild(infoDiv);
+                card.appendChild(playBtn);
+                card.appendChild(delBtn);
+                libraryList.appendChild(card);
+            });
+        }
+
+        function deleteStoryFromLibrary(id) {
+            storyHistory = storyHistory.filter(s => s.id !== id);
+            localStorage.setItem('gemini_story_history', JSON.stringify(storyHistory));
+            renderLibrary();
+        }
+
+        function loadStoryFromLibrary(id) {
+            const story = storyHistory.find(s => s.id === id);
+            if (!story) return;
+            
+            closeLibraryBtn.click();
+            stopEverything();
+            setupStatus.innerText = "";
+            prepareAndPlayStory(story.text);
+        }
+
+        openLibraryBtn.addEventListener('click', () => { 
+            settingsModal.classList.remove('active'); // close settings if open
+            libraryModal.classList.add('active'); 
+            renderLibrary(); 
+        });
+        closeLibraryBtn.addEventListener('click', () => { libraryModal.classList.remove('active'); });
+        libraryModal.addEventListener('click', (e) => { if (e.target === libraryModal) closeLibraryBtn.click(); });
+
+
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key'); if (savedKey) apiKeyInput.value = savedKey;
             const savedAmbient = localStorage.getItem('gemini_ambient_type'); if (savedAmbient) ambientSelect.value = savedAmbient;
@@ -520,13 +643,51 @@
 
         apiKeyInput.addEventListener('change', (e) => localStorage.setItem('gemini_api_key', e.target.value.trim()));
 
-        openSettingsBtn.addEventListener('click', () => { settingsModal.classList.add('active'); populateVoiceList(); });
+        openSettingsBtn.addEventListener('click', () => { 
+            libraryModal.classList.remove('active'); // close library if open
+            settingsModal.classList.add('active'); 
+            populateVoiceList(); 
+        });
         closeSettingsBtn.addEventListener('click', () => {
             synth.cancel(); if (!isPlaying) stopAmbientSound();
             settingsModal.classList.remove('active');
             if (apiKeyInput.value.trim()) localStorage.setItem('gemini_api_key', apiKeyInput.value.trim());
         });
         settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) closeSettingsBtn.click(); });
+
+        // --- Common Prepare & Play Function ---
+        function prepareAndPlayStory(storyText) {
+            const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+            storyOutput.innerHTML = formattedText;
+            
+            let spokenText = storyText.replace(/\*/g, '');
+            let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
+            rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
+            
+            storyChunks = [];
+            const numChunks = 4;
+            const chunkSize = Math.ceil(rawSentences.length / numChunks);
+            
+            if (rawSentences.length > 0) {
+                for (let i = 0; i < rawSentences.length; i += chunkSize) {
+                    storyChunks.push(rawSentences.slice(i, i + chunkSize).join(' '));
+                }
+            } else {
+                storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')];
+            }
+            
+            currentChunkIndex = 0;
+            setupScreen.classList.add('hidden'); 
+            playerScreen.classList.remove('hidden'); 
+            playerScreen.classList.add('flex');
+            window.scrollTo(0, 0); 
+            
+            isPlaying = false; isPaused = false;
+            updatePlayButtonUI();
+            playerStatus.innerText = "Ready to play"; 
+            playerStatus.classList.remove('text-red-400'); 
+            playerStatus.classList.add('text-accent');
+        }
 
         // --- Generation Logic ---
         generateBtn.addEventListener('click', async () => {
@@ -543,34 +704,12 @@
                 setupStatus.innerText = "Writing your story... (This may take a minute)";
                 const storyText = await fetchStoryFromAPI(apiKey, modelName, categorySelect.value);
                 
-                const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-                storyOutput.innerHTML = formattedText;
-                
-                // FOUR CHUNKS FOR API (Balances Rate Limits, Generation Timeouts, and Payload Size)
-                let spokenText = storyText.replace(/\*/g, '');
-                let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
-                rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
-                
-                storyChunks = [];
-                const numChunks = 4;
-                const chunkSize = Math.ceil(rawSentences.length / numChunks);
-                
-                if (rawSentences.length > 0) {
-                    for (let i = 0; i < rawSentences.length; i += chunkSize) {
-                        storyChunks.push(rawSentences.slice(i, i + chunkSize).join(' '));
-                    }
-                } else {
-                    // Fallback for very short outputs
-                    storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')];
-                }
-                
-                currentChunkIndex = 0;
-                setupScreen.classList.add('hidden'); playerScreen.classList.remove('hidden'); playerScreen.classList.add('flex');
-                window.scrollTo(0, 0); 
-                
-                isPlaying = false; isPaused = false;
-                updatePlayButtonUI();
-                playerStatus.innerText = "Ready to play"; playerStatus.classList.remove('text-red-400'); playerStatus.classList.add('text-accent');
+                // SAVE TO HISTORY
+                const categoryLabel = categorySelect.options[categorySelect.selectedIndex].text;
+                saveStoryToHistory(storyText, categoryLabel);
+
+                // PREPARE AND SWITCH UI
+                prepareAndPlayStory(storyText);
 
             } catch (error) {
                 setupStatus.innerText = error.message;
@@ -607,21 +746,14 @@
         });
 
         stopBtn.addEventListener('click', () => {
-            currentPlaybackId++; 
-            synth.cancel();
-            if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} geminiAudioSource = null; }
-            stopAmbientSound();
-            isPlaying = false; isPaused = false; currentChunkIndex = 0; 
+            stopEverything();
+            currentChunkIndex = 0; 
             playerStatus.innerText = "Stopped";
             updatePlayButtonUI();
         });
 
         backBtn.addEventListener('click', () => {
-            currentPlaybackId++; 
-            synth.cancel();
-            if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} geminiAudioSource = null; }
-            stopAmbientSound();
-            isPlaying = false;
+            stopEverything();
             playerScreen.classList.add('hidden'); playerScreen.classList.remove('flex'); setupScreen.classList.remove('hidden');
             setupStatus.innerText = "";
         });
@@ -814,11 +946,7 @@
             return source;
         }
         
-        window.addEventListener('beforeunload', () => {
-            synth.cancel();
-            if (geminiAudioSource) { try { geminiAudioSource.stop(); } catch(e){} }
-            stopAmbientSound();
-        });
+        window.addEventListener('beforeunload', stopEverything);
 
         // --- PWA Service Worker Registration ---
         if ('serviceWorker' in navigator) {
