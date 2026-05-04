@@ -546,18 +546,21 @@
                 const formattedText = storyText.split('\n\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
                 storyOutput.innerHTML = formattedText;
                 
-                // TWO CHUNKS FOR API (Balances Rate Limits and Generation Timeouts)
+                // FOUR CHUNKS FOR API (Balances Rate Limits, Generation Timeouts, and Payload Size)
                 let spokenText = storyText.replace(/\*/g, '');
                 let rawSentences = spokenText.replace(/[\r\n]+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z"'])/);
                 rawSentences = rawSentences.filter(chunk => chunk.trim().length > 0);
                 
-                if (rawSentences.length > 1) {
-                    const midPoint = Math.floor(rawSentences.length / 2);
-                    storyChunks = [
-                        rawSentences.slice(0, midPoint).join(' '),
-                        rawSentences.slice(midPoint).join(' ')
-                    ];
+                storyChunks = [];
+                const numChunks = 4;
+                const chunkSize = Math.ceil(rawSentences.length / numChunks);
+                
+                if (rawSentences.length > 0) {
+                    for (let i = 0; i < rawSentences.length; i += chunkSize) {
+                        storyChunks.push(rawSentences.slice(i, i + chunkSize).join(' '));
+                    }
                 } else {
+                    // Fallback for very short outputs
                     storyChunks = [spokenText.replace(/[\r\n]+/g, ' ')];
                 }
                 
@@ -645,7 +648,7 @@
             const pitch = parseFloat(voicePitchInput.value);
 
             if (savedVoiceURI && savedVoiceURI.startsWith('gemini-')) {
-                // CLOUD TTS (Split roughly in half)
+                // CLOUD TTS (Split into 4 parts)
                 try {
                     playerStatus.innerText = `Generating audio (Part ${currentChunkIndex + 1} of ${storyChunks.length})...`;
                     const apiKey = apiKeyInput.value.trim();
